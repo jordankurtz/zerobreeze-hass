@@ -1,0 +1,20 @@
+{
+  "domain": "zerobreeze",
+  "name": "ZeroBreeze AC",
+  "version": "1.0.0",
+  "codeowners": ["@jordankurtz"],
+  "config_flow": true,
+  "dependencies": ["bluetooth_adapters"],
+  "documentation": "https://github.com/jordankurtz/zerobreeze-hass",
+  "bluetooth": [
+    {
+      "service_uuid": "0000fd50-0000-1000-8000-00805f9b34fb"
+    }
+  ],
+  "iot_class": "local_push",
+  "requirements": [
+    "bleak>=0.21.0",
+    "bleak-retry-connector>=3.0.0",
+    "pycryptodome>=3.18.0"
+  ]
+}

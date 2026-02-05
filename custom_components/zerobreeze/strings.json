@@ -1,0 +1,31 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ZeroBreeze AC",
+        "description": "Select your ZeroBreeze AC device and enter the credentials.",
+        "data": {
+          "address": "Device",
+          "login_key": "Login Key (first 6 chars of localKey)",
+          "device_uuid": "Device UUID (16 char Tuya device ID)"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Configure ZeroBreeze AC",
+        "description": "Found ZeroBreeze device: {name}\n\nEnter the device credentials.",
+        "data": {
+          "login_key": "Login Key (first 6 chars of localKey)",
+          "device_uuid": "Device UUID (16 char Tuya device ID)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "no_devices_found": "No ZeroBreeze devices found. Make sure your device is powered on and in range."
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device",
+      "invalid_auth": "Invalid login key"
+    }
+  }
+}
