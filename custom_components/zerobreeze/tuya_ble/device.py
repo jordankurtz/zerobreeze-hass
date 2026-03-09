@@ -7,6 +7,10 @@ from typing import Any, Callable
 
 from bleak import BleakClient
 from bleak.exc import BleakError
+from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
+
+from homeassistant.components import bluetooth
+from homeassistant.core import HomeAssistant
 
 from .protocol import TuyaBLEProtocol, DataPoint
 from ..const import (
@@ -31,9 +35,8 @@ from ..const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-# Timeout for BLE operations
-BLE_TIMEOUT = 10.0
 AUTH_TIMEOUT = 5.0
+COMMAND_TIMEOUT = 10.0
 
 
 class ZeroBreezeDevice:
@@ -41,12 +44,14 @@ class ZeroBreezeDevice:
 
     def __init__(
         self,
+        hass: HomeAssistant,
         address: str,
         login_key: str,
         device_uuid: str,
         name: str | None = None,
     ) -> None:
         """Initialize device."""
+        self._hass = hass
         self._address = address
         self._name = name or f"ZeroBreeze {address[-5:].replace(':', '')}"
         self._protocol = TuyaBLEProtocol(login_key, device_uuid)
@@ -93,11 +98,25 @@ class ZeroBreezeDevice:
             try:
                 _LOGGER.info("Connecting to %s", self._address)
 
-                self._client = BleakClient(
-                    self._address,
-                    disconnected_callback=self._on_disconnect,
+                ble_device = bluetooth.async_ble_device_from_address(
+                    self._hass, self._address, connectable=True
                 )
-                await self._client.connect(timeout=BLE_TIMEOUT)
+                if ble_device is None:
+                    _LOGGER.error(
+                        "Device %s not found via Bluetooth scanner", self._address
+                    )
+                    return False
+
+                self._client = await establish_connection(
+                    BleakClientWithServiceCache,
+                    ble_device,
+                    self._name,
+                    disconnected_callback=self._on_disconnect,
+                    use_services_cache=True,
+                    ble_device_callback=lambda: bluetooth.async_ble_device_from_address(
+                        self._hass, self._address, connectable=True
+                    ),
+                )
                 _LOGGER.debug("BLE connected, starting notifications")
 
                 # Start notifications
@@ -216,7 +235,7 @@ class ZeroBreezeDevice:
 
                 # Wait for response
                 try:
-                    await asyncio.wait_for(self._response_event.wait(), BLE_TIMEOUT)
+                    await asyncio.wait_for(self._response_event.wait(), COMMAND_TIMEOUT)
                 except asyncio.TimeoutError:
                     _LOGGER.warning("Command response timeout")
                     # Command may still have worked

@@ -27,7 +27,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("Setting up ZeroBreeze device at %s", address)
 
     # Create device
-    device = ZeroBreezeDevice(address, login_key, device_uuid, name)
+    device = ZeroBreezeDevice(hass, address, login_key, device_uuid, name)
 
     # Create coordinator
     coordinator = ZeroBreezeCoordinator(hass, device)
