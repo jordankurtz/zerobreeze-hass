@@ -14,6 +14,7 @@ from homeassistant.core import HomeAssistant
 
 from .protocol import TuyaBLEProtocol, DataPoint
 from ..const import (
+    SERVICE_UUID,
     WRITE_CHAR_UUID,
     NOTIFY_CHAR_UUID,
     DP_POWER,
@@ -127,6 +128,7 @@ class ZeroBreezeDevice:
                 self._client = BleakClient(
                     ble_device,
                     disconnected_callback=self._on_disconnect,
+                    services=[SERVICE_UUID],
                 )
                 await self._client.connect(timeout=BLE_TIMEOUT)
                 _LOGGER.debug("BLE connected, starting notifications")
