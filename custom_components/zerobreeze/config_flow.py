@@ -10,6 +10,7 @@ from homeassistant import config_entries
 from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
+    async_scanner_by_source,
     async_scanner_devices_by_address,
 )
 from homeassistant.const import CONF_ADDRESS, CONF_NAME
@@ -23,11 +24,26 @@ SCANNER_SOURCE_AUTO = "auto"
 
 
 def _get_scanner_options(hass, address: str) -> dict[str, str]:
-    """Return {source: label} for all scanners that can see the device."""
-    options = {SCANNER_SOURCE_AUTO: "Automatic (best available)"}
+    """Return {source: label} for all available Bluetooth scanners."""
+    # Find which scanners can currently see our device
+    detecting_sources: set[str] = set()
     for scanner_device in async_scanner_devices_by_address(hass, address, connectable=True):
-        scanner = scanner_device.scanner
-        options[scanner.source] = f"{scanner.name} ({scanner.source})"
+        detecting_sources.add(scanner_device.scanner.source)
+
+    # Collect all known scanner sources from any discovered BLE device
+    all_sources: set[str] = set(detecting_sources)
+    for service_info in async_discovered_service_info(hass, connectable=True):
+        all_sources.add(service_info.source)
+
+    options = {SCANNER_SOURCE_AUTO: "Automatic (best available)"}
+    for source in sorted(all_sources):
+        scanner = async_scanner_by_source(hass, source)
+        name = scanner.name if scanner else source
+        label = f"{name} ({source})" if name != source else source
+        if source in detecting_sources:
+            label += " - detected"
+        options[source] = label
+
     return options
 
 
