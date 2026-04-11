@@ -64,6 +64,7 @@ MAX_TEMP_F: Final = 82
 # Configuration keys
 CONF_LOGIN_KEY: Final = "login_key"
 CONF_DEVICE_UUID: Final = "device_uuid"
+CONF_SCANNER_SOURCE: Final = "scanner_source"
 
 # Update interval
 UPDATE_INTERVAL: Final = 30  # seconds

@@ -17,6 +17,23 @@
           "login_key": "Login Key (first 6 chars of localKey)",
           "device_uuid": "Device UUID (16 char Tuya device ID)"
         }
+      },
+      "scanner": {
+        "title": "Choose Bluetooth Adapter",
+        "description": "Select which Bluetooth adapter to use for {address}.",
+        "data": {
+          "scanner_source": "Bluetooth Adapter"
+        }
+      }
+    },
+    "options": {
+      "step": {
+        "init": {
+          "title": "ZeroBreeze Options",
+          "data": {
+            "scanner_source": "Bluetooth Adapter"
+          }
+        }
       }
     },
     "abort": {

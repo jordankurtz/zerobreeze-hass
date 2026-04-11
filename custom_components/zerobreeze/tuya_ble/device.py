@@ -10,6 +10,7 @@ from bleak.exc import BleakError
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from homeassistant.components import bluetooth
+from homeassistant.components.bluetooth import async_scanner_devices_by_address
 from homeassistant.core import HomeAssistant
 
 from .protocol import TuyaBLEProtocol, DataPoint
@@ -49,10 +50,12 @@ class ZeroBreezeDevice:
         login_key: str,
         device_uuid: str,
         name: str | None = None,
+        scanner_source: str | None = None,
     ) -> None:
         """Initialize device."""
         self._hass = hass
         self._address = address
+        self._scanner_source = scanner_source
         self._name = name or f"ZeroBreeze {address[-5:].replace(':', '')}"
         self._protocol = TuyaBLEProtocol(login_key, device_uuid)
         self._client: BleakClient | None = None
@@ -84,6 +87,23 @@ class ZeroBreezeDevice:
         """Return current device state (DP values)."""
         return self._state.copy()
 
+    def _get_ble_device(self):
+        """Return a BLEDevice for the configured scanner, or best available."""
+        if self._scanner_source:
+            for scanner_device in async_scanner_devices_by_address(
+                self._hass, self._address, connectable=True
+            ):
+                if scanner_device.scanner.source == self._scanner_source:
+                    return scanner_device.device
+            _LOGGER.warning(
+                "Configured scanner %s cannot see %s, falling back to best available",
+                self._scanner_source,
+                self._address,
+            )
+        return bluetooth.async_ble_device_from_address(
+            self._hass, self._address, connectable=True
+        )
+
     def register_callback(self, callback: Callable[[dict[int, Any]], None]) -> Callable[[], None]:
         """Register callback for state updates. Returns unregister function."""
         self._state_callbacks.append(callback)
@@ -98,9 +118,7 @@ class ZeroBreezeDevice:
             try:
                 _LOGGER.info("Connecting to %s", self._address)
 
-                ble_device = bluetooth.async_ble_device_from_address(
-                    self._hass, self._address, connectable=True
-                )
+                ble_device = self._get_ble_device()
                 if ble_device is None:
                     _LOGGER.error(
                         "Device %s not found via Bluetooth scanner", self._address
@@ -113,9 +131,7 @@ class ZeroBreezeDevice:
                     self._name,
                     disconnected_callback=self._on_disconnect,
                     use_services_cache=True,
-                    ble_device_callback=lambda: bluetooth.async_ble_device_from_address(
-                        self._hass, self._address, connectable=True
-                    ),
+                    ble_device_callback=self._get_ble_device,
                 )
                 _LOGGER.debug("BLE connected, starting notifications")
 

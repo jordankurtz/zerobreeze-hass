@@ -8,7 +8,7 @@ from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
-from .const import CONF_LOGIN_KEY, CONF_DEVICE_UUID, DOMAIN
+from .const import CONF_LOGIN_KEY, CONF_DEVICE_UUID, CONF_SCANNER_SOURCE, DOMAIN
 from .coordinator import ZeroBreezeCoordinator
 from .tuya_ble import ZeroBreezeDevice
 
@@ -23,27 +23,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     login_key = entry.data[CONF_LOGIN_KEY]
     device_uuid = entry.data[CONF_DEVICE_UUID]
     name = entry.data.get("name", f"ZeroBreeze {address[-5:]}")
+    scanner_source = entry.options.get(CONF_SCANNER_SOURCE, entry.data.get(CONF_SCANNER_SOURCE))
 
-    _LOGGER.info("Setting up ZeroBreeze device at %s", address)
+    _LOGGER.info("Setting up ZeroBreeze device at %s (scanner: %s)", address, scanner_source or "auto")
 
-    # Create device
-    device = ZeroBreezeDevice(hass, address, login_key, device_uuid, name)
-
-    # Create coordinator
+    device = ZeroBreezeDevice(hass, address, login_key, device_uuid, name, scanner_source)
     coordinator = ZeroBreezeCoordinator(hass, device)
 
-    # Set up coordinator
     if not await coordinator.async_setup():
         raise ConfigEntryNotReady(f"Failed to connect to ZeroBreeze at {address}")
 
-    # Store coordinator
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Forward to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
     return True
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Handle options update — reload so the new scanner source takes effect."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
