@@ -129,6 +129,7 @@ class ZeroBreezeDevice:
                     ble_device,
                     disconnected_callback=self._on_disconnect,
                     services=[SERVICE_UUID],
+                    dangerous_use_bleak_cache=True,
                 )
                 await self._client.connect(timeout=BLE_TIMEOUT)
                 _LOGGER.debug("BLE connected, starting notifications")
