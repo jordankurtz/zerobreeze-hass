@@ -103,7 +103,7 @@ class ZeroBreezeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             source = user_input[CONF_SCANNER_SOURCE]
             self._pending_data[CONF_SCANNER_SOURCE] = None if source == SCANNER_SOURCE_AUTO else source
-            title = self._pending_data.pop(CONF_NAME, None) or f"ZeroBreeze {address[-5:]}"
+            title = self._pending_data.get(CONF_NAME) or f"ZeroBreeze {address[-5:]}"
             return self.async_create_entry(title=title, data=self._pending_data)
 
         pre_selected = self._pending_data.get(CONF_SCANNER_SOURCE, SCANNER_SOURCE_AUTO)
