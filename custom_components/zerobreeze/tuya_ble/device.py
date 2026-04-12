@@ -17,6 +17,9 @@ from ..const import (
     SERVICE_UUID,
     WRITE_CHAR_UUID,
     NOTIFY_CHAR_UUID,
+    CMD_AUTH,
+    CMD_CONTROL,
+    CMD_RESPONSE_OFFSET,
     DP_POWER,
     DP_MODE_WRITE,
     DP_SET_TEMP_F,
@@ -193,24 +196,59 @@ class ZeroBreezeDevice:
         self._connected = False
         self._protocol.reset()
 
-    def _on_notification(self, sender: int, data: bytearray) -> None:
+    @staticmethod
+    def _normalize_packet(data: bytes) -> bytes:
+        """Normalize fragmented BLE packet to standard format.
+
+        Two receive formats exist depending on BLE MTU / transport:
+
+        Standard (small, length < 0x80):
+            [0x00] [length] [seq] [cmd] [payload...]
+            cmd is combined: e.g. 0x44 = CMD_RESPONSE_OFFSET + CMD_AUTH
+
+        Fragmented (large, length byte >= 0x80):
+            [0x00] [length] [fragNum] [cmd] [secFlag] [payload...]
+            cmd is base response offset (0x40), secFlag holds the original cmd.
+            Example: 00 81 01 40 04 ... → cmd=0x40, secFlag=0x04
+
+        This method converts fragmented packets to standard format so
+        downstream parsers only need to handle one layout.
+        """
+        if len(data) < 5 or not (data[1] & 0x80):
+            return data
+
+        response_cmd = data[3]   # e.g. 0x40
+        sec_flag = data[4]       # e.g. 0x04 (CMD_AUTH)
+        payload = data[5:]
+
+        # Combine response offset + original command into single cmd byte
+        if response_cmd == CMD_RESPONSE_OFFSET:
+            combined_cmd = CMD_RESPONSE_OFFSET + sec_flag
+        else:
+            combined_cmd = response_cmd
+
+        # Rebuild as standard format, preserving secFlag so IV offsets stay correct:
+        # [0x00] [length] [fragNum] [combined_cmd] [secFlag] [IV...] [encrypted...]
+        return bytes([0x00, len(payload) + 3, data[2], combined_cmd, sec_flag]) + payload
+
+    def _on_notification(self, sender, data: bytearray) -> None:
         """Handle incoming BLE notifications."""
         _LOGGER.debug("Notification from %s: %s", sender, data.hex())
 
-        data_bytes = bytes(data)
+        data_bytes = self._normalize_packet(bytes(data))
         if len(data_bytes) < 4:
             return
 
         cmd = data_bytes[3]
 
-        # Auth response (0x44)
-        if cmd == 0x44:
+        # Auth response (0x44 = CMD_RESPONSE_OFFSET + CMD_AUTH)
+        if cmd == CMD_RESPONSE_OFFSET + CMD_AUTH:
             if self._protocol.parse_auth_response(data_bytes):
                 self._auth_event.set()
             return
 
-        # Control response (0x45)
-        if cmd == 0x45:
+        # Control response (0x45 = CMD_RESPONSE_OFFSET + CMD_CONTROL)
+        if cmd == CMD_RESPONSE_OFFSET + CMD_CONTROL:
             dps = self._protocol.parse_response(data_bytes)
             if dps:
                 self._last_response = dps
@@ -219,7 +257,7 @@ class ZeroBreezeDevice:
             return
 
         # Status notification (0x05)
-        if cmd == 0x05:
+        if cmd == CMD_CONTROL:
             dps = self._protocol.parse_status_notification(data_bytes)
             if dps:
                 self._update_state(dps)
