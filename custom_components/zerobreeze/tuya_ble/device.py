@@ -88,18 +88,19 @@ class ZeroBreezeDevice:
         return self._state.copy()
 
     def _get_ble_device(self):
-        """Return a BLEDevice for the configured scanner, or best available."""
+        """Return a BLEDevice for the configured scanner only."""
         if self._scanner_source:
             for scanner_device in async_scanner_devices_by_address(
                 self._hass, self._address, connectable=True
             ):
                 if scanner_device.scanner.source == self._scanner_source:
                     return scanner_device.ble_device
-            _LOGGER.warning(
-                "Configured scanner %s cannot see %s, falling back to best available",
+            _LOGGER.error(
+                "Configured scanner %s cannot currently see %s",
                 self._scanner_source,
                 self._address,
             )
+            return None
         return bluetooth.async_ble_device_from_address(
             self._hass, self._address, connectable=True
         )
