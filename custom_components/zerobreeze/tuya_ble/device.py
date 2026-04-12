@@ -94,7 +94,7 @@ class ZeroBreezeDevice:
                 self._hass, self._address, connectable=True
             ):
                 if scanner_device.scanner.source == self._scanner_source:
-                    return scanner_device.device
+                    return scanner_device.ble_device
             _LOGGER.warning(
                 "Configured scanner %s cannot see %s, falling back to best available",
                 self._scanner_source,
